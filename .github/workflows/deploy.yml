@@ -1,143 +1,45 @@
-name: Deploy Presenca
+name: Validar Presenca
 
 on:
   push:
     branches: [main]
-    paths:
-      - "public/**"
-      - "Dockerfile"
-      - "README.md"
-      - ".github/workflows/deploy.yml"
+  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
-concurrency:
-  group: presenca-production
-  cancel-in-progress: false
-
 jobs:
-  deploy:
-    name: Deploy presenca.mskpoeira.com.br
+  validate:
+    name: Validar aplicacao Presenca
     runs-on: ubuntu-latest
-
     steps:
-      - name: Baixar código
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
 
-      - name: Verificar credenciais
-        id: creds
-        shell: bash
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        run: |
-          if [ -n "$SSH_PRIVATE_KEY" ]; then
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::error::SSH_PRIVATE_KEY não configurada neste repositório."
-          fi
-
-      - name: Criar pacote
-        if: steps.creds.outputs.ready == 'true'
+      - name: Validar arquivos
         shell: bash
         run: |
           set -euo pipefail
-          tar -czf release-presenca.tar.gz public Dockerfile README.md LICENSE
+          test -f public/index.html
+          test -f public/checkin.php
+          test -f public/app.js
+          test -f public/styles.css
+          test -f Dockerfile
 
-      - name: Transferir release
-        if: steps.creds.outputs.ready == 'true'
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_IP || '77.37.40.81' }}
-          username: ${{ secrets.HOSTINGER_USER || 'root' }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          timeout: "120s"
-          command_timeout: "10m"
-          source: "release-presenca.tar.gz"
-          target: "/tmp"
-          overwrite: true
+      - name: Build Docker
+        run: docker build -t presenca-ci:test .
 
-      - name: Publicar no VPS
-        if: steps.creds.outputs.ready == 'true'
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.HOSTINGER_IP || '77.37.40.81' }}
-          username: ${{ secrets.HOSTINGER_USER || 'root' }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          timeout: "120s"
-          command_timeout: "20m"
-          script: |
-            set -eu
-
-            APP_DIR=/app/presenca
-            STORAGE_DIR="$APP_DIR/storage"
-            CONTAINER=presenca-app
-            IMAGE=presenca-app:latest
-            PROXY_CONTAINER=sgr-proxy-prod
-
-            mkdir -p "$APP_DIR" "$STORAGE_DIR"
-            mv -f /tmp/release-presenca.tar.gz "$APP_DIR/"
-            cd "$APP_DIR"
-            tar -xzf release-presenca.tar.gz
-            rm -f release-presenca.tar.gz
-            chmod 770 "$STORAGE_DIR"
-
-            NET=$(docker inspect -f '{{range $name, $cfg := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$PROXY_CONTAINER" 2>/dev/null | grep -Ev '^(bridge|host|none)$' | head -n 1 || true)
-            test -n "$NET" || { echo "Rede do proxy não encontrada."; exit 1; }
-
-            docker build -t "$IMAGE" .
-            docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
-            docker rm -f presenca-anonima >/dev/null 2>&1 || true
-
-            docker run -d               --name "$CONTAINER"               --restart always               --network "$NET"               --network-alias presenca               -e PRESENCA_STORAGE=/var/www/storage               -v "$STORAGE_DIR:/var/www/storage"               "$IMAGE"
-
-            CADDY_FILE=$(docker inspect "$PROXY_CONTAINER" --format '{{range .Mounts}}{{if eq .Destination "/etc/caddy/Caddyfile"}}{{.Source}}{{end}}{{end}}')
-            test -n "$CADDY_FILE" || { echo "Caddyfile do proxy não localizado."; exit 1; }
-
-            if ! grep -q '^presenca\.mskpoeira\.com\.br' "$CADDY_FILE"; then
-              {
-                echo
-                echo 'presenca.mskpoeira.com.br {'
-                echo '    header {'
-                echo '        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"'
-                echo '        X-Content-Type-Options "nosniff"'
-                echo '        X-Frame-Options "DENY"'
-                echo '        Referrer-Policy "no-referrer"'
-                echo '        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"'
-                echo '        -Server'
-                echo '    }'
-                echo '    encode zstd gzip'
-                echo '    reverse_proxy presenca:80'
-                echo '}'
-              } >> "$CADDY_FILE"
-            fi
-
-            docker exec "$PROXY_CONTAINER" caddy validate --config /etc/caddy/Caddyfile
-            docker exec "$PROXY_CONTAINER" caddy reload --force --config /etc/caddy/Caddyfile
-
-            for i in $(seq 1 20); do
-              if curl --fail --silent --show-error --location --max-time 15 https://presenca.mskpoeira.com.br/ >/dev/null; then
-                echo "PRESENCA ONLINE."
-                exit 0
-              fi
-              echo "Tentativa $i/20..."
-              sleep 5
-            done
-
-            docker logs --tail 120 "$CONTAINER" || true
-            docker logs --tail 160 "$PROXY_CONTAINER" || true
-            exit 1
-
-      - name: Falhar se credencial estiver ausente
-        if: steps.creds.outputs.ready != 'true'
+      - name: Teste HTTP
         shell: bash
         run: |
-          echo "A publicação não pode prosseguir sem SSH_PRIVATE_KEY."
+          set -euo pipefail
+          mkdir -p /tmp/presenca-ci-storage
+          docker run -d --name presenca-ci -p 127.0.0.1:18081:80             -e PRESENCA_STORAGE=/var/www/storage             -v /tmp/presenca-ci-storage:/var/www/storage             presenca-ci:test
+          for i in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18081/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          docker logs presenca-ci
           exit 1
