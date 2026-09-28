@@ -23,6 +23,7 @@ form.addEventListener("submit",async(event)=>{
   const payload={
     nome:document.getElementById("nome").value.trim(),
     telefone:telefone.value.trim(),
+    email:document.getElementById("email").value.trim(),
     bairro:document.getElementById("bairro").value.trim()
   };
 
