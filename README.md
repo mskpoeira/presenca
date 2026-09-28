@@ -15,7 +15,7 @@ Não há compartilhamento de código, navegação ou funcionalidades com Show de
 ## Função atual
 
 - Página pública responsiva
-- Formulário com Nome, Telefone e Bairro
+- Formulário com Nome, Telefone, E-mail e Bairro
 - Registro de cada check-in em banco SQLite
 - Data e hora do registro no fuso America/Sao_Paulo
 - Banco persistente fora da pasta pública
@@ -33,7 +33,7 @@ Tabela principal:
 
 `presencas`
 
-Campos: `id`, `evento`, `nome`, `telefone`, `bairro` e `registrado_em`.
+Campos: `id`, `evento`, `nome`, `telefone`, `email`, `bairro` e `registrado_em`.
 
 O diretório de armazenamento é montado como volume persistente no VPS e não é servido publicamente pelo Apache.
 
