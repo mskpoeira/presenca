@@ -1,0 +1,17 @@
+:root{--navy:#071a38;--blue:#0d3f82;--yellow:#ffd21f;--green:#16a34a;--white:#fff;--ink:#10203b;--muted:#66738b;--line:#e2e8f0}
+*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+body{background:linear-gradient(145deg,#071a38 0%,#0b3c78 58%,#0c5c3b 100%);color:var(--ink)}
+.shell{width:min(720px,calc(100% - 28px));margin:auto;padding:28px 0 20px}
+.hero,.card{border-radius:24px;box-shadow:0 24px 70px rgba(0,0,0,.22)}
+.hero{background:linear-gradient(120deg,#07152f,#0a3f80);color:#fff;padding:30px;margin-bottom:18px;position:relative;overflow:hidden}
+.hero:after{content:"";position:absolute;right:-70px;bottom:-100px;width:250px;height:250px;border-radius:50%;background:var(--yellow)}
+.hero>*{position:relative;z-index:1}.tag{display:inline-block;background:var(--yellow);color:var(--navy);font-weight:900;padding:7px 10px;border-radius:8px;font-size:.8rem}
+h1{font-size:clamp(2.2rem,9vw,4rem);line-height:1;text-transform:uppercase;margin:16px 0 8px;letter-spacing:-.04em}
+.subtitle{font-size:1.35rem;font-weight:800;margin:0 0 18px}.address{margin:0;color:#dceaff;font-weight:650}
+.card{background:#fff;padding:28px}.badge{display:inline-block;background:var(--green);color:#fff;font-weight:900;font-size:.72rem;letter-spacing:.08em;padding:6px 9px;border-radius:999px}
+h2{font-size:clamp(1.7rem,5vw,2.35rem);margin:10px 0 8px}.lead{color:var(--muted);line-height:1.55;margin:0 0 22px}
+button{width:100%;border:0;border-radius:15px;padding:17px 18px;font:inherit;font-size:1.08rem;font-weight:950;background:var(--yellow);color:var(--navy);cursor:pointer;box-shadow:0 9px 20px rgba(255,210,31,.25)}
+button:disabled{opacity:.62;cursor:default}.message{min-height:24px;margin-top:14px;font-weight:800}.message.ok{color:#087a36}.message.error{color:#b42318}
+.privacy{margin:18px 0 0;padding-top:16px;border-top:1px solid var(--line);color:var(--muted);font-size:.8rem;line-height:1.55}
+footer{text-align:center;color:#d9e5f6;font-size:.78rem;padding:16px 0}
+@media(max-width:520px){.shell{width:calc(100% - 18px);padding-top:12px}.hero,.card{border-radius:19px}.hero,.card{padding:22px}h1{font-size:2.5rem}}
