@@ -10,6 +10,32 @@ function respond(int $status, array $data): never {
     exit;
 }
 
+function getClientIp(): string {
+    $candidates = [];
+
+    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        foreach (explode(',', (string)$_SERVER['HTTP_X_FORWARDED_FOR']) as $value) {
+            $candidates[] = trim($value);
+        }
+    }
+
+    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+        $candidates[] = trim((string)$_SERVER['HTTP_X_REAL_IP']);
+    }
+
+    if (!empty($_SERVER['REMOTE_ADDR'])) {
+        $candidates[] = trim((string)$_SERVER['REMOTE_ADDR']);
+    }
+
+    foreach ($candidates as $candidate) {
+        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
+            return $candidate;
+        }
+    }
+
+    return 'indisponivel';
+}
+
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(405, ['ok' => false, 'error' => 'Método não permitido.']);
 }
@@ -25,6 +51,7 @@ $nome = trim((string)($input['nome'] ?? ''));
 $telefone = trim((string)($input['telefone'] ?? ''));
 $email = strtolower(trim((string)($input['email'] ?? '')));
 $bairro = trim((string)($input['bairro'] ?? ''));
+$ip = getClientIp();
 
 if ($nome === '' || strlen($nome) < 2 || strlen($nome) > 120) {
     respond(422, ['ok' => false, 'error' => 'Informe um nome válido.']);
@@ -69,6 +96,7 @@ try {
             telefone TEXT NOT NULL,
             email TEXT,
             bairro TEXT NOT NULL,
+            ip TEXT,
             registrado_em TEXT NOT NULL
         )'
     );
@@ -78,10 +106,13 @@ try {
     if (!in_array('email', $columnNames, true)) {
         $pdo->exec('ALTER TABLE presencas ADD COLUMN email TEXT');
     }
+    if (!in_array('ip', $columnNames, true)) {
+        $pdo->exec('ALTER TABLE presencas ADD COLUMN ip TEXT');
+    }
 
     $stmt = $pdo->prepare(
-        'INSERT INTO presencas (evento, nome, telefone, email, bairro, registrado_em)
-         VALUES (:evento, :nome, :telefone, :email, :bairro, :registrado_em)'
+        'INSERT INTO presencas (evento, nome, telefone, email, bairro, ip, registrado_em)
+         VALUES (:evento, :nome, :telefone, :email, :bairro, :ip, :registrado_em)'
     );
 
     $timezone = new DateTimeZone('America/Sao_Paulo');
@@ -93,6 +124,7 @@ try {
         ':telefone' => $telefoneDigitos,
         ':email' => $email,
         ':bairro' => $bairro,
+        ':ip' => $ip,
         ':registrado_em' => $agora->format('Y-m-d H:i:s'),
     ]);
 
