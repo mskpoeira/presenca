@@ -20,13 +20,31 @@
     <section class="card">
       <span class="badge">PRESENÇA</span>
       <h2>Registrar presença</h2>
-      <p class="lead">Toque no botão abaixo para confirmar o check-in.</p>
+      <p class="lead">Preencha os dados abaixo para concluir o check-in.</p>
 
-      <button id="checkin" type="button">Confirmar presença</button>
+      <form id="checkin-form" autocomplete="on">
+        <div class="field">
+          <label for="nome">Nome</label>
+          <input id="nome" name="nome" type="text" autocomplete="name" maxlength="120" required placeholder="Seu nome completo">
+        </div>
+
+        <div class="field">
+          <label for="telefone">Telefone</label>
+          <input id="telefone" name="telefone" type="tel" inputmode="tel" autocomplete="tel" maxlength="16" required placeholder="(12) 99999-9999">
+        </div>
+
+        <div class="field">
+          <label for="bairro">Bairro</label>
+          <input id="bairro" name="bairro" type="text" maxlength="100" required placeholder="Seu bairro">
+        </div>
+
+        <button id="checkin" type="submit">Registrar presença</button>
+      </form>
+
       <div id="message" class="message" role="status" aria-live="polite"></div>
 
       <p class="privacy">
-        O sistema registra somente a quantidade de check-ins e não solicita nome, telefone ou bairro.
+        Os dados informados serão utilizados para o controle de presença deste evento e mantidos em acesso restrito.
       </p>
     </section>
 
