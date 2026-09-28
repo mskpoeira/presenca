@@ -15,11 +15,27 @@ Não há compartilhamento de código, navegação ou funcionalidades com Show de
 ## Função atual
 
 - Página pública responsiva
-- Check-in por dispositivo
-- Contador persistente
+- Formulário com Nome, Telefone e Bairro
+- Registro de cada check-in em banco SQLite
+- Data e hora do registro no fuso America/Sao_Paulo
+- Banco persistente fora da pasta pública
 - Container próprio
 - Workflow próprio de deploy
 - Publicação em `presenca.mskpoeira.com.br`
+
+## Banco de dados
+
+O banco é armazenado em:
+
+`/var/www/storage/presenca.sqlite`
+
+Tabela principal:
+
+`presencas`
+
+Campos: `id`, `evento`, `nome`, `telefone`, `bairro` e `registrado_em`.
+
+O diretório de armazenamento é montado como volume persistente no VPS e não é servido publicamente pelo Apache.
 
 ## Deploy
 
