@@ -23,6 +23,7 @@ if (!is_array($input)) {
 
 $nome = trim((string)($input['nome'] ?? ''));
 $telefone = trim((string)($input['telefone'] ?? ''));
+$email = strtolower(trim((string)($input['email'] ?? '')));
 $bairro = trim((string)($input['bairro'] ?? ''));
 
 if ($nome === '' || strlen($nome) < 2 || strlen($nome) > 120) {
@@ -32,6 +33,10 @@ if ($nome === '' || strlen($nome) < 2 || strlen($nome) > 120) {
 $telefoneDigitos = preg_replace('/\D+/', '', $telefone) ?? '';
 if (strlen($telefoneDigitos) < 10 || strlen($telefoneDigitos) > 11) {
     respond(422, ['ok' => false, 'error' => 'Informe um telefone válido com DDD.']);
+}
+
+if ($email === '' || strlen($email) > 160 || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    respond(422, ['ok' => false, 'error' => 'Informe um e-mail válido.']);
 }
 
 if ($bairro === '' || strlen($bairro) < 2 || strlen($bairro) > 100) {
@@ -62,14 +67,21 @@ try {
             evento TEXT NOT NULL,
             nome TEXT NOT NULL,
             telefone TEXT NOT NULL,
+            email TEXT,
             bairro TEXT NOT NULL,
             registrado_em TEXT NOT NULL
         )'
     );
 
+    $columns = $pdo->query("PRAGMA table_info(presencas)")->fetchAll();
+    $columnNames = array_column($columns, 'name');
+    if (!in_array('email', $columnNames, true)) {
+        $pdo->exec('ALTER TABLE presencas ADD COLUMN email TEXT');
+    }
+
     $stmt = $pdo->prepare(
-        'INSERT INTO presencas (evento, nome, telefone, bairro, registrado_em)
-         VALUES (:evento, :nome, :telefone, :bairro, :registrado_em)'
+        'INSERT INTO presencas (evento, nome, telefone, email, bairro, registrado_em)
+         VALUES (:evento, :nome, :telefone, :email, :bairro, :registrado_em)'
     );
 
     $timezone = new DateTimeZone('America/Sao_Paulo');
@@ -79,6 +91,7 @@ try {
         ':evento' => '2026-09-28',
         ':nome' => $nome,
         ':telefone' => $telefoneDigitos,
+        ':email' => $email,
         ':bairro' => $bairro,
         ':registrado_em' => $agora->format('Y-m-d H:i:s'),
     ]);
