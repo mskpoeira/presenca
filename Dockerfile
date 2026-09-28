@@ -1,6 +1,10 @@
 FROM php:8.3-apache
 
-RUN a2enmod headers rewrite \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libsqlite3-dev \
+    && docker-php-ext-install pdo_sqlite \
+    && rm -rf /var/lib/apt/lists/* \
+    && a2enmod headers rewrite \
     && printf '%s\n' \
       'ServerSignature Off' \
       'ServerTokens Prod' \
