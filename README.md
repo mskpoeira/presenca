@@ -16,7 +16,7 @@ Não há compartilhamento de código, navegação ou funcionalidades com Show de
 
 - Página pública responsiva
 - Formulário com Nome, Telefone, E-mail e Bairro
-- Registro de cada check-in em banco SQLite
+- Registro de cada check-in em banco SQLite, incluindo o IP do acesso
 - Data e hora do registro no fuso America/Sao_Paulo
 - Banco persistente fora da pasta pública
 - Container próprio
@@ -33,9 +33,9 @@ Tabela principal:
 
 `presencas`
 
-Campos: `id`, `evento`, `nome`, `telefone`, `email`, `bairro` e `registrado_em`.
+Campos: `id`, `evento`, `nome`, `telefone`, `email`, `bairro`, `ip` e `registrado_em`.
 
-O diretório de armazenamento é montado como volume persistente no VPS e não é servido publicamente pelo Apache.
+O IP é capturado no servidor no momento do check-in. O diretório de armazenamento é montado como volume persistente no VPS e não é servido publicamente pelo Apache.
 
 ## Deploy
 
