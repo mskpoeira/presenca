@@ -25,7 +25,7 @@ $nome = trim((string)($input['nome'] ?? ''));
 $telefone = trim((string)($input['telefone'] ?? ''));
 $bairro = trim((string)($input['bairro'] ?? ''));
 
-if ($nome === '' || mb_strlen($nome) < 2 || mb_strlen($nome) > 120) {
+if ($nome === '' || strlen($nome) < 2 || strlen($nome) > 120) {
     respond(422, ['ok' => false, 'error' => 'Informe um nome válido.']);
 }
 
@@ -34,7 +34,7 @@ if (strlen($telefoneDigitos) < 10 || strlen($telefoneDigitos) > 11) {
     respond(422, ['ok' => false, 'error' => 'Informe um telefone válido com DDD.']);
 }
 
-if ($bairro === '' || mb_strlen($bairro) < 2 || mb_strlen($bairro) > 100) {
+if ($bairro === '' || strlen($bairro) < 2 || strlen($bairro) > 100) {
     respond(422, ['ok' => false, 'error' => 'Informe um bairro válido.']);
 }
 
