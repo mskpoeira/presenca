@@ -10,14 +10,13 @@ REPO_URL=https://github.com/mskpoeira/presenca.git
 BRANCH=main
 APP=presenca-app
 CANDIDATE=presenca-candidate
-PROXY=sgr-proxy-prod
+NETWORK=presenca
+BIND=${PRESENCA_BIND:-127.0.0.1:58080}
 
 mkdir -p "$BASE" "$STORAGE"
 exec 9>"$BASE/.sync.lock"
 flock -n 9 || exit 0
 exec >>"$LOG" 2>&1
-
-echo "[$(date -Is)] Verificando atualizacoes do Presenca"
 
 if [ ! -d "$SRC/.git" ]; then
   rm -rf "$SRC"
@@ -29,58 +28,41 @@ fi
 NEW_SHA=$(git -C "$SRC" rev-parse "origin/$BRANCH")
 OLD_SHA=$(cat "$STATE" 2>/dev/null || true)
 
-CURRENT_OK=no
-if docker inspect "$APP" >/dev/null 2>&1 && docker exec "$APP" php -r 'exit(@file_get_contents("http://127.0.0.1/")===false?1:0);' >/dev/null 2>&1; then
-  CURRENT_OK=yes
-fi
-
-if [ "$NEW_SHA" = "$OLD_SHA" ] && [ "$CURRENT_OK" = "yes" ]; then
-  echo "[$(date -Is)] Sem alteracoes: $NEW_SHA"
-  exit 0
+if [ "$NEW_SHA" = "$OLD_SHA" ] && docker inspect "$APP" >/dev/null 2>&1; then
+  if docker exec "$APP" php -r 'exit(@file_get_contents("http://127.0.0.1/")===false?1:0);' >/dev/null 2>&1; then
+    exit 0
+  fi
 fi
 
 git -C "$SRC" reset --hard "origin/$BRANCH"
 IMAGE="presenca-app:$NEW_SHA"
 
-echo "[$(date -Is)] Construindo $IMAGE"
+docker network inspect "$NETWORK" >/dev/null 2>&1 || docker network create "$NETWORK" >/dev/null
 docker build --pull=false -t "$IMAGE" "$SRC"
-
-NETWORK=$(docker inspect -f '{{range $name, $cfg := .NetworkSettings.Networks}}{{println $name}}{{end}}' "$PROXY" 2>/dev/null | grep -Ev '^(bridge|host|none)$' | head -n 1 || true)
-test -n "$NETWORK" || { echo "Rede do proxy nao encontrada"; exit 1; }
 
 chown -R 33:33 "$STORAGE" || true
 chmod -R u+rwX,g+rwX,o-rwx "$STORAGE" || true
 
 docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
-docker run -d --name "$CANDIDATE" --restart no   --network "$NETWORK" --network-alias presenca-candidate   -e PRESENCA_STORAGE=/var/www/storage   -v "$STORAGE:/var/www/storage"   "$IMAGE" >/dev/null
+docker run -d --name "$CANDIDATE" --restart no   --network "$NETWORK"   -e PRESENCA_STORAGE=/var/www/storage   -v "$STORAGE:/var/www/storage"   "$IMAGE" >/dev/null
 
-READY=no
 for i in $(seq 1 30); do
   if docker exec "$CANDIDATE" php -r 'exit(@file_get_contents("http://127.0.0.1/")===false?1:0);' >/dev/null 2>&1; then
-    READY=yes
     break
   fi
+  [ "$i" -lt 30 ] || { docker logs --tail 120 "$CANDIDATE"; exit 1; }
   sleep 1
 done
 
-if [ "$READY" != "yes" ]; then
-  echo "Candidato nao ficou saudavel."
-  docker logs --tail 120 "$CANDIDATE" || true
-  docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
-  exit 1
-fi
-
 OLD_IMAGE=$(docker inspect "$APP" --format '{{.Config.Image}}' 2>/dev/null || true)
 docker rm -f "$APP" >/dev/null 2>&1 || true
+docker rm -f "$CANDIDATE" >/dev/null 2>&1 || true
 
-docker network disconnect "$NETWORK" "$CANDIDATE" >/dev/null 2>&1 || true
-docker network connect --alias presenca "$NETWORK" "$CANDIDATE"
-docker rename "$CANDIDATE" "$APP"
-docker update --restart always "$APP" >/dev/null
+docker run -d --name "$APP" --restart always   --network "$NETWORK"   -p "$BIND:80"   -e PRESENCA_STORAGE=/var/www/storage   -v "$STORAGE:/var/www/storage"   "$IMAGE" >/dev/null
 
 POST_OK=no
 for i in $(seq 1 20); do
-  if docker exec "$APP" php -r 'exit(@file_get_contents("http://127.0.0.1/")===false?1:0);' >/dev/null 2>&1      && curl --fail --silent --show-error --location --max-time 12 https://presenca.mskpoeira.com.br/ >/dev/null 2>&1; then
+  if docker exec "$APP" php -r 'exit(@file_get_contents("http://127.0.0.1/")===false?1:0);' >/dev/null 2>&1; then
     POST_OK=yes
     break
   fi
@@ -88,16 +70,14 @@ for i in $(seq 1 20); do
 done
 
 if [ "$POST_OK" != "yes" ]; then
-  echo "Falha apos troca; executando rollback."
   docker rm -f "$APP" >/dev/null 2>&1 || true
   if [ -n "$OLD_IMAGE" ]; then
-    docker run -d --name "$APP" --restart always       --network "$NETWORK" --network-alias presenca       -e PRESENCA_STORAGE=/var/www/storage       -v "$STORAGE:/var/www/storage"       "$OLD_IMAGE" >/dev/null
+    docker run -d --name "$APP" --restart always       --network "$NETWORK"       -p "$BIND:80"       -e PRESENCA_STORAGE=/var/www/storage       -v "$STORAGE:/var/www/storage"       "$OLD_IMAGE" >/dev/null
   fi
   exit 1
 fi
 
-printf '%s\n' "$NEW_SHA" > "$STATE"
+printf '%s
+' "$NEW_SHA" > "$STATE"
 docker tag "$IMAGE" presenca-app:latest
 docker image prune -f >/dev/null 2>&1 || true
-
-echo "[$(date -Is)] Deploy concluido: $NEW_SHA"
