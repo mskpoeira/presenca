@@ -1,12 +1,14 @@
 # Presença — identidade e isolamento
 
-- Repositório oficial: `mskpoeira/presenca`
-- Domínio: `presenca.mskpoeira.com.br`
-- Diretório de produção: `/app/presenca`
-- Contêiner: `presenca-app`
-- Alias interno do proxy: `presenca`
-- Armazenamento persistente: `/app/presenca/storage`
+Repositório oficial: `mskpoeira/presenca`  
+Diretório de produção: `/app/presenca`  
+Contêiner: `presenca-app`  
+Rede Docker: `presenca`  
+Armazenamento: `/app/presenca/storage`  
+Bind HTTP padrão: `127.0.0.1:58080`
 
-O projeto Presença é independente. Não incorpora código, banco, menus ou navegação de SGR, SIGDEC, Portal de Projetos ou Show de Prêmios.
+## Regra permanente
 
-O proxy reverso compartilhado apenas encaminha o domínio para `presenca:80`. A atualização da aplicação é feita pelo próprio ambiente do Presença, que sincroniza o repositório oficial e só promove uma nova imagem após validação.
+O Presença é autocontido.
+
+Não utiliza código, banco, rede, volume, proxy, autenticação, API, workflow, navegação, redirect, fallback ou arquivo de qualquer outro projeto.
