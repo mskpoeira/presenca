@@ -1,46 +1,24 @@
 # Presença
 
-Sistema independente de check-in para o evento de 28/09/2026.
+Sistema independente de check-in em eventos.
 
-## Produção
+## Funções
 
-https://presenca.mskpoeira.com.br
+- página pública responsiva;
+- formulário de Nome, Telefone, E-mail e Bairro;
+- registro em SQLite próprio;
+- registro de IP e data/hora;
+- armazenamento persistente exclusivo;
+- container e rede próprios.
 
-## Repositório
+## Persistência
 
-Este repositório contém exclusivamente o projeto **Presença**.
+Banco: `/var/www/storage/presenca.sqlite`
 
-Não há compartilhamento de código, navegação ou funcionalidades com Show de Prêmios, SGR, SIGDEC, KaraokeStudio ou outros projetos.
+O diretório persistente do servidor é `/app/presenca/storage`.
 
-## Função atual
+## Isolamento
 
-- Página pública responsiva
-- Formulário com Nome, Telefone, E-mail e Bairro
-- Registro de cada check-in em banco SQLite, incluindo o IP do acesso
-- Data e hora do registro no fuso America/Sao_Paulo
-- Banco persistente fora da pasta pública
-- Container próprio
-- Workflow próprio de deploy
-- Publicação em `presenca.mskpoeira.com.br`
+O projeto não compartilha código, banco, rede Docker, volume, proxy, autenticação, API ou workflow com qualquer outro projeto.
 
-## Banco de dados
-
-O banco é armazenado em:
-
-`/var/www/storage/presenca.sqlite`
-
-Tabela principal:
-
-`presencas`
-
-Campos: `id`, `evento`, `nome`, `telefone`, `email`, `bairro`, `ip` e `registrado_em`.
-
-O IP é capturado no servidor no momento do check-in. O diretório de armazenamento é montado como volume persistente no VPS e não é servido publicamente pelo Apache.
-
-## Deploy
-
-O deploy utiliza GitHub Actions e requer o secret:
-
-`SSH_PRIVATE_KEY`
-
-O servidor padrão configurado é `77.37.40.81`.
+O runtime usa a rede `presenca` e o bind HTTP local `127.0.0.1:58080` por padrão.
