@@ -26,6 +26,17 @@ function getLocation(){
   });
 }
 
+function getLocation(){
+  return new Promise(resolve=>{
+    if(!("geolocation" in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      position=>resolve({latitude:position.coords.latitude,longitude:position.coords.longitude,accuracy:Math.round(position.coords.accuracy)}),
+      ()=>resolve(null),
+      {enableHighAccuracy:false,timeout:4500,maximumAge:300000}
+    );
+  });
+}
+
 form.addEventListener("submit",async(event)=>{
   event.preventDefault();
   if(!form.reportValidity()) return;
