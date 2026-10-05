@@ -10,30 +10,21 @@ function respond(int $status, array $data): never {
     exit;
 }
 
+function isTrustedProxy(string $ip): bool {
+    if (!filter_var($ip, FILTER_VALIDATE_IP)) return false;
+    if ($ip === '127.0.0.1' || $ip === '::1') return true;
+    return filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false;
+}
+
 function getClientIp(): string {
-    $candidates = [];
-
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        foreach (explode(',', (string)$_SERVER['HTTP_X_FORWARDED_FOR']) as $value) {
-            $candidates[] = trim($value);
-        }
+    $remote = trim((string)($_SERVER['REMOTE_ADDR'] ?? ''));
+    if ($remote !== '' && isTrustedProxy($remote)) {
+        $forwarded = trim(explode(',', (string)($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))[0] ?? '');
+        if ($forwarded !== '' && filter_var($forwarded, FILTER_VALIDATE_IP)) return $forwarded;
+        $real = trim((string)($_SERVER['HTTP_X_REAL_IP'] ?? ''));
+        if ($real !== '' && filter_var($real, FILTER_VALIDATE_IP)) return $real;
     }
-
-    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-        $candidates[] = trim((string)$_SERVER['HTTP_X_REAL_IP']);
-    }
-
-    if (!empty($_SERVER['REMOTE_ADDR'])) {
-        $candidates[] = trim((string)$_SERVER['REMOTE_ADDR']);
-    }
-
-    foreach ($candidates as $candidate) {
-        if (filter_var($candidate, FILTER_VALIDATE_IP)) {
-            return $candidate;
-        }
-    }
-
-    return 'indisponivel';
+    return filter_var($remote, FILTER_VALIDATE_IP) ? $remote : 'indisponivel';
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -51,6 +42,9 @@ $nome = trim((string)($input['nome'] ?? ''));
 $telefone = trim((string)($input['telefone'] ?? ''));
 $email = strtolower(trim((string)($input['email'] ?? '')));
 $bairro = trim((string)($input['bairro'] ?? ''));
+$latitude = isset($input['latitude']) && is_numeric($input['latitude']) ? (float)$input['latitude'] : null;
+$longitude = isset($input['longitude']) && is_numeric($input['longitude']) ? (float)$input['longitude'] : null;
+$accuracy = isset($input['accuracy']) && is_numeric($input['accuracy']) ? max(0, (int)$input['accuracy']) : null;
 $ip = getClientIp();
 
 if ($nome === '' || strlen($nome) < 2 || strlen($nome) > 120) {
@@ -69,6 +63,8 @@ if ($email === '' || strlen($email) > 160 || !filter_var($email, FILTER_VALIDATE
 if ($bairro === '' || strlen($bairro) < 2 || strlen($bairro) > 100) {
     respond(422, ['ok' => false, 'error' => 'Informe um bairro válido.']);
 }
+if ($latitude !== null && ($latitude < -90 || $latitude > 90)) $latitude = null;
+if ($longitude !== null && ($longitude < -180 || $longitude > 180)) $longitude = null;
 
 $storage = getenv('PRESENCA_STORAGE') ?: '/var/www/storage';
 
@@ -97,6 +93,9 @@ try {
             email TEXT,
             bairro TEXT NOT NULL,
             ip TEXT,
+            latitude REAL,
+            longitude REAL,
+            accuracy INTEGER,
             registrado_em TEXT NOT NULL
         )'
     );
@@ -106,13 +105,14 @@ try {
     if (!in_array('email', $columnNames, true)) {
         $pdo->exec('ALTER TABLE presencas ADD COLUMN email TEXT');
     }
-    if (!in_array('ip', $columnNames, true)) {
-        $pdo->exec('ALTER TABLE presencas ADD COLUMN ip TEXT');
-    }
+    if (!in_array('ip', $columnNames, true)) $pdo->exec('ALTER TABLE presencas ADD COLUMN ip TEXT');
+    if (!in_array('latitude', $columnNames, true)) $pdo->exec('ALTER TABLE presencas ADD COLUMN latitude REAL');
+    if (!in_array('longitude', $columnNames, true)) $pdo->exec('ALTER TABLE presencas ADD COLUMN longitude REAL');
+    if (!in_array('accuracy', $columnNames, true)) $pdo->exec('ALTER TABLE presencas ADD COLUMN accuracy INTEGER');
 
     $stmt = $pdo->prepare(
-        'INSERT INTO presencas (evento, nome, telefone, email, bairro, ip, registrado_em)
-         VALUES (:evento, :nome, :telefone, :email, :bairro, :ip, :registrado_em)'
+        'INSERT INTO presencas (evento, nome, telefone, email, bairro, ip, latitude, longitude, accuracy, registrado_em)
+         VALUES (:evento, :nome, :telefone, :email, :bairro, :ip, :latitude, :longitude, :accuracy, :registrado_em)'
     );
 
     $timezone = new DateTimeZone('America/Sao_Paulo');
@@ -125,6 +125,9 @@ try {
         ':email' => $email,
         ':bairro' => $bairro,
         ':ip' => $ip,
+        ':latitude' => $latitude,
+        ':longitude' => $longitude,
+        ':accuracy' => $accuracy,
         ':registrado_em' => $agora->format('Y-m-d H:i:s'),
     ]);
 
